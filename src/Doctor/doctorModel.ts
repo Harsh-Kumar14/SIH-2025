@@ -1,32 +1,33 @@
 import mongoose, { Schema, Document, type Decimal128 } from "mongoose";
 import {number, string, z} from "zod";
-enum available{
-  "available"="Available Today",
-  "notavailable"="Not Available Today"
+
+enum Available {
+  AVAILABLE = "available",
+  NOT_AVAILABLE = "not available"
 }
+
 export const DoctorSchemaZod = z.object({
   name: z.string().min(1),
   specialization: z.string().min(1),
   experience: z.number(),
-  rating:z.float32(),
+  rating: z.number(),
   contact: z.string().min(1),
   email: z.email(),
   location: z.string().min(1),
   consultationFee: z.string(),
-  availability:z.enum(available)
+  availability: z.nativeEnum(Available)
 });
 
 export interface DoctorDocument extends Document {
   name: string;
   specialization: string;
   experience: number;
-  rating:number;
+  rating: number;
   contact: string;
   email: string;
   location: string;
   consultationFee: string;
-  availability:available
-
+  availability: Available;
 }
 
 const DoctorSchema = new Schema<DoctorDocument>({
