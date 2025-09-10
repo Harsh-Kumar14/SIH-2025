@@ -8,6 +8,8 @@ import { ChatSocketService } from './chatting/chat.service.js';
 import { chatRoutes } from './chatting/chat.routes.js';
 import { createUser, getAllUsers, getUserById, deleteUser, getUsersByDoctorId, searchUsersByName, getUserStats } from './user/userservice.js';
 import { UserSchemaZod } from './user/usermodel.js';
+import { User } from './user/usermodel.js';
+import { Doctor } from './Doctor/doctorModel.js';
 import { bookConsultation, getDoctorConsultations, updateConsultationStatus, getPatientConsultationHistory, getConsultationsByStatus, cancelConsultation, getNextPatientInQueue, getConsultationStats } from './consultation/consultationService.js';
 import { ConsultationSchemaZod, ConsultationStatus } from './consultation/consultationModel.js';
 const app = express();
@@ -68,7 +70,7 @@ app.post('/add-user', async (req, res) => {
             contact: result.data.contact,
             age: result.data.age,
             gender: result.data.gender,
-            doctorId: result.data.doctorId
+            doctorId: result.data.doctorId ? result.data.doctorId : ""
         };
         const user = await createUser(userData);
         res.status(201).json({
@@ -225,16 +227,21 @@ app.post('/book-consultation', async (req, res) => {
             });
         }
         const consultationData = {
-            doctorId: result.data.doctorId,
-            patientId: result.data.patientId,
-            patientName: result.data.patientName,
+            doctorLicenseNumber: result.data.doctorLicenseNumber,
             patientContact: result.data.patientContact,
+            patientName: result.data.patientName,
             reason: result.data.reason,
             consultationType: result.data.consultationType
         };
-        // Add scheduledTime if provided
-        if (result.data.scheduledTime) {
-            consultationData.scheduledTime = result.data.scheduledTime;
+        // Add optional fields if provided
+        if (result.data.preferredDate) {
+            consultationData.preferredDate = result.data.preferredDate;
+        }
+        if (result.data.preferredTime) {
+            consultationData.preferredTime = result.data.preferredTime;
+        }
+        if (result.data.additionalNotes) {
+            consultationData.additionalNotes = result.data.additionalNotes;
         }
         const consultation = await bookConsultation(consultationData);
         res.status(201).json({
@@ -253,6 +260,55 @@ app.post('/book-consultation', async (req, res) => {
 app.post('/doctorId', async (req, res) => {
     const id = await (getDoctorId(req.body.licenseNumber));
     res.status(200).json({ doctorId: id });
+});
+// Helper route to get patient ID by contact number
+app.post('/patientId', async (req, res) => {
+    try {
+        const { contactNumber } = req.body;
+        if (!contactNumber) {
+            return res.status(400).json({ error: 'Contact number is required' });
+        }
+        const patient = await User.findOne({ contact: contactNumber });
+        if (!patient) {
+            return res.status(404).json({ error: 'Patient not found with this contact number' });
+        }
+        res.status(200).json({
+            patientId: patient._id,
+            patientName: patient.name
+        });
+    }
+    catch (error) {
+        console.error('Error getting patient ID:', error);
+        res.status(500).json({
+            error: 'Failed to get patient ID',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// Helper route to get doctor ID by license number
+app.post('/getDoctorByLicense', async (req, res) => {
+    try {
+        const { licenseNumber } = req.body;
+        if (!licenseNumber) {
+            return res.status(400).json({ error: 'License number is required' });
+        }
+        const doctor = await Doctor.findOne({ licenseNumber });
+        if (!doctor) {
+            return res.status(404).json({ error: 'Doctor not found with this license number' });
+        }
+        res.status(200).json({
+            doctorId: doctor._id,
+            doctorName: doctor.name,
+            specialization: doctor.specialization
+        });
+    }
+    catch (error) {
+        console.error('Error getting doctor by license:', error);
+        res.status(500).json({
+            error: 'Failed to get doctor by license',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
 });
 app.get('/doctor-consultations/:doctorId', async (req, res) => {
     try {
@@ -273,7 +329,7 @@ app.get('/doctor-consultations/:doctorId', async (req, res) => {
 });
 app.put('/update-consultation-status', async (req, res) => {
     try {
-        const { doctorId, patientId, status, notes } = req.body;
+        const { doctorId, patientId, status, doctorNotes } = req.body;
         if (!doctorId || !patientId || !status) {
             return res.status(400).json({
                 error: 'doctorId, patientId, and status are required'
@@ -288,7 +344,7 @@ app.put('/update-consultation-status', async (req, res) => {
             doctorId,
             patientId,
             status,
-            notes
+            doctorNotes
         };
         const updatedConsultation = await updateConsultationStatus(updateData);
         res.status(200).json({

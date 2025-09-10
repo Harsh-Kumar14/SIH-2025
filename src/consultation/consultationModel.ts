@@ -17,13 +17,14 @@ export enum ConsultationType {
 
 // Zod schema for validation
 export const ConsultationSchemaZod = z.object({
-  doctorId: z.string().min(1, "Doctor ID is required"),
-  patientId: z.string().min(1, "Patient ID is required"),
+  doctorLicenseNumber: z.string().min(1, "Doctor license number is required"), // Use license number to find doctor
+  patientContact: z.string().min(10, "Patient contact number is required"), // Use contact to find patient
   patientName: z.string().min(1, "Patient name is required"),
-  patientContact: z.string().min(10, "Valid contact number is required"),
-  reason: z.string().min(1, "Reason for consultation is required"),
+  reason: z.string().min(1, "Symptoms or reason for consultation is required"),
   consultationType: z.nativeEnum(ConsultationType).default(ConsultationType.GENERAL),
-  scheduledTime: z.string().optional(),
+  preferredDate: z.string().optional(), // Date from the form
+  preferredTime: z.string().optional(), // Time slot from the form
+  additionalNotes: z.string().optional(), // Additional notes from the form
   status: z.nativeEnum(ConsultationStatus).default(ConsultationStatus.WAITING)
 });
 
@@ -32,14 +33,17 @@ export interface PatientInConsultation {
   patientId: mongoose.Types.ObjectId;
   patientName: string;
   patientContact: string;
-  reason: string;
+  reason: string; // Symptoms or reason for consultation
   consultationType: ConsultationType;
   status: ConsultationStatus;
   bookedAt: Date;
-  scheduledTime?: Date;
+  preferredDate?: Date; // Patient's preferred date
+  preferredTime?: string; // Patient's preferred time slot
+  scheduledTime?: Date; // Actual scheduled time (set by doctor)
   startedAt?: Date;
   completedAt?: Date;
-  notes?: string;
+  additionalNotes?: string; // Patient's additional notes
+  doctorNotes?: string; // Doctor's notes during/after consultation
 }
 
 // Main consultation document interface
@@ -86,6 +90,13 @@ const PatientConsultationSchema = new Schema<PatientInConsultation>({
     type: Date,
     default: Date.now
   },
+  preferredDate: {
+    type: Date
+  },
+  preferredTime: {
+    type: String,
+    trim: true
+  },
   scheduledTime: {
     type: Date
   },
@@ -95,7 +106,11 @@ const PatientConsultationSchema = new Schema<PatientInConsultation>({
   completedAt: {
     type: Date
   },
-  notes: {
+  additionalNotes: {
+    type: String,
+    trim: true
+  },
+  doctorNotes: {
     type: String,
     trim: true
   }

@@ -1,136 +1,113 @@
-# Consultation Booking System
+# Updated Consultation Booking System
 
-This system allows patients to book consultations with doctors and provides doctors with a queue management system.
+This system now supports booking consultations using doctor license numbers and patient contact numbers for lookup.
 
-## Database Models
+## Updated API Endpoints
 
-### 1. User Model (`/user/userModel.ts`)
-```typescript
-{
-  name: string,
-  contact: string,
-  age: number,
-  gender: "male" | "female" | "other",
-  doctorId: ObjectId, // Reference to doctor
-  doctorName: string, // Auto-populated from doctor
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### 2. Consultation Model (`/consultation/consultationModel.ts`)
-```typescript
-{
-  doctorId: ObjectId, // Reference to doctor (unique - one document per doctor)
-  patients: [
-    {
-      patientId: ObjectId, // Reference to user
-      patientName: string,
-      patientContact: string,
-      reason: string,
-      consultationType: "general" | "follow-up" | "emergency" | "video-call",
-      status: "waiting" | "in-progress" | "completed" | "cancelled",
-      bookedAt: Date,
-      scheduledTime?: Date,
-      startedAt?: Date,
-      completedAt?: Date,
-      notes?: string
-    }
-  ],
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-## API Endpoints
-
-### Book Consultation
+### Book Consultation (Updated)
 ```http
 POST /book-consultation
 Content-Type: application/json
 
 {
-  "doctorId": "doctor_object_id",
-  "patientId": "patient_object_id", 
+  "doctorLicenseNumber": "DOC123456", // Doctor's license number
+  "patientContact": "+1234567890", // Patient's contact number
   "patientName": "John Doe",
-  "patientContact": "+1234567890",
-  "reason": "Regular checkup",
-  "consultationType": "general",
-  "scheduledTime": "2025-09-10T10:00:00Z" // optional
+  "reason": "Heart palpitations and chest discomfort",
+  "consultationType": "video-call",
+  "preferredDate": "2025-09-15", // Optional - patient's preferred date
+  "preferredTime": "10:00 AM", // Optional - patient's preferred time slot
+  "additionalNotes": "I have been experiencing symptoms for the past week" // Optional
 }
 ```
 
-### Get Doctor's Consultation Queue
-```http
-GET /doctor-consultations/{doctorId}
+### Helper Endpoints
 
-Response:
-{
-  "doctorId": "doctor_id",
-  "patients": [...],
-  "stats": {
-    "waiting": 3,
-    "inProgress": 1,
-    "completed": 10,
-    "total": 14
-  }
-}
-```
-
-### Update Consultation Status
+#### Get Patient ID by Contact
 ```http
-PUT /update-consultation-status
+POST /patientId
 Content-Type: application/json
 
 {
-  "doctorId": "doctor_id",
-  "patientId": "patient_id",
-  "status": "in-progress", // waiting | in-progress | completed | cancelled
-  "notes": "Patient is doing well" // optional
+  "contactNumber": "+1234567890"
+}
+
+Response:
+{
+  "patientId": "patient_object_id",
+  "patientName": "John Doe"
 }
 ```
 
-### Get Patient's Consultation History
+#### Get Doctor by License Number
 ```http
-GET /patient-consultation-history/{patientId}
+POST /getDoctorByLicense
+Content-Type: application/json
+
+{
+  "licenseNumber": "DOC123456"
+}
+
+Response:
+{
+  "doctorId": "doctor_object_id",
+  "doctorName": "Dr. Sarah Johnson",
+  "specialization": "Cardiology"
+}
 ```
 
-### Get Consultations by Status
-```http
-GET /consultations-by-status/{doctorId}/{status}
-// status: waiting | in-progress | completed | cancelled
+## Updated Data Models
+
+### Updated Consultation Schema
+```typescript
+{
+  doctorLicenseNumber: string, // Used to find doctor
+  patientContact: string, // Used to find patient
+  patientName: string,
+  reason: string, // Symptoms/reason for consultation
+  consultationType: "general" | "follow-up" | "emergency" | "video-call",
+  preferredDate?: string, // Patient's preferred date
+  preferredTime?: string, // Patient's preferred time slot  
+  additionalNotes?: string, // Patient's notes
+  status: "waiting" | "in-progress" | "completed" | "cancelled"
+}
 ```
 
-### Cancel Consultation
-```http
-DELETE /cancel-consultation/{doctorId}/{patientId}
-```
-
-### Get Next Patient in Queue
-```http
-GET /next-patient/{doctorId}
-```
-
-### Get Consultation Statistics
-```http
-GET /consultation-stats/{doctorId} // for specific doctor
-GET /consultation-stats // for all doctors
+### Patient in Consultation (Updated)
+```typescript
+{
+  patientId: ObjectId,
+  patientName: string,
+  patientContact: string,
+  reason: string,
+  consultationType: string,
+  status: string,
+  bookedAt: Date,
+  preferredDate?: Date, // When patient wants appointment
+  preferredTime?: string, // Patient's preferred time slot
+  scheduledTime?: Date, // Actual scheduled time (set by doctor)
+  startedAt?: Date,
+  completedAt?: Date,
+  additionalNotes?: string, // Patient's notes
+  doctorNotes?: string // Doctor's notes
+}
 ```
 
 ## Frontend Integration Example
 
-### 1. Book Consultation Button (Patient Side)
+### Updated Book Consultation Form
 ```javascript
-// In DoctorsSection component
-const handleBookConsultation = async (doctor) => {
+const handleBookConsultation = async (formData) => {
   try {
     const bookingData = {
-      doctorId: doctor._id,
-      patientId: currentPatient.id,
+      doctorLicenseNumber: doctor.licenseNumber, // From doctor card
+      patientContact: currentPatient.contact, // From logged-in patient
       patientName: currentPatient.name,
-      patientContact: currentPatient.contact,
-      reason: consultationReason,
-      consultationType: "general"
+      reason: formData.symptoms, // From form
+      consultationType: formData.consultationType, // "video-call", "general", etc.
+      preferredDate: formData.preferredDate, // From date picker
+      preferredTime: formData.preferredTime, // From time selector
+      additionalNotes: formData.additionalNotes // From text area
     };
 
     const response = await fetch('http://localhost:8080/book-consultation', {
@@ -142,8 +119,12 @@ const handleBookConsultation = async (doctor) => {
     });
 
     if (response.ok) {
+      const result = await response.json();
       alert('Consultation booked successfully!');
-      // Optionally redirect or update UI
+      console.log('Booking details:', result.consultation);
+    } else {
+      const error = await response.json();
+      alert(`Failed to book consultation: ${error.message}`);
     }
   } catch (error) {
     console.error('Error booking consultation:', error);
@@ -152,97 +133,146 @@ const handleBookConsultation = async (doctor) => {
 };
 ```
 
-### 2. Doctor's Queue Management (Doctor Side)
+### Patient Login Integration
 ```javascript
-// In PatientQueue component
-const fetchConsultations = async () => {
+const loginPatient = async (contactNumber, password) => {
   try {
-    const response = await fetch(`http://localhost:8080/doctor-consultations/${doctorId}`);
-    const data = await response.json();
+    // First authenticate patient
+    const authResponse = await authenticatePatient(contactNumber, password);
     
-    setWaitingPatients(data.patients.filter(p => p.status === 'waiting'));
-    setInProgressPatients(data.patients.filter(p => p.status === 'in-progress'));
-    setCompletedPatients(data.patients.filter(p => p.status === 'completed'));
-    setStats(data.stats);
-  } catch (error) {
-    console.error('Error fetching consultations:', error);
-  }
-};
+    if (authResponse.success) {
+      // Get patient ID for future bookings
+      const patientResponse = await fetch('http://localhost:8080/patientId', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ contactNumber })
+      });
 
-const updatePatientStatus = async (patientId, newStatus) => {
-  try {
-    const response = await fetch('http://localhost:8080/update-consultation-status', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        doctorId: doctorId,
-        patientId: patientId,
-        status: newStatus
-      })
-    });
-
-    if (response.ok) {
-      fetchConsultations(); // Refresh the queue
+      const patientData = await patientResponse.json();
+      
+      // Store patient info in state/localStorage
+      setCurrentPatient({
+        id: patientData.patientId,
+        name: patientData.patientName,
+        contact: contactNumber
+      });
+      
+      localStorage.setItem('currentPatient', JSON.stringify(patientData));
     }
   } catch (error) {
-    console.error('Error updating status:', error);
+    console.error('Login error:', error);
   }
 };
 ```
 
-## Usage Flow
-
-1. **Patient Books Consultation**:
-   - Patient clicks "Book Consultation" button on doctor's profile
-   - System creates/updates consultation document for that doctor
-   - Patient is added to doctor's queue with "waiting" status
-
-2. **Doctor Views Queue**:
-   - Doctor opens their dashboard
-   - System displays patients grouped by status (waiting, in-progress, completed)
-   - Shows statistics and queue length
-
-3. **Doctor Manages Queue**:
-   - Doctor can start consultation (waiting → in-progress)
-   - Doctor can complete consultation (in-progress → completed)
-   - Doctor can add notes during/after consultation
-
-4. **Real-time Updates** (Optional Enhancement):
-   - Use WebSocket/Socket.IO to notify doctors of new bookings
-   - Update patient status in real-time
-   - Send notifications to patients about status changes
-
-## Database Queries Examples
-
+### Form Component Example
 ```javascript
-// Get all waiting patients for a doctor
-const waitingPatients = await Consultation.findOne({ doctorId })
-  .then(doc => doc?.patients.filter(p => p.status === 'waiting') || []);
-
-// Get patient's consultation history
-const history = await Consultation.find({ 'patients.patientId': patientId })
-  .populate('doctorId', 'name specialization');
-
-// Get next patient in queue (oldest waiting)
-const nextPatient = await Consultation.findOne({ doctorId })
-  .then(doc => {
-    const waiting = doc?.patients
-      .filter(p => p.status === 'waiting')
-      .sort((a, b) => a.bookedAt - b.bookedAt);
-    return waiting?.[0] || null;
+const BookAppointmentForm = ({ doctor, onClose }) => {
+  const [formData, setFormData] = useState({
+    symptoms: '',
+    consultationType: 'general',
+    preferredDate: '',
+    preferredTime: '',
+    additionalNotes: ''
   });
+
+  const currentPatient = JSON.parse(localStorage.getItem('currentPatient'));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!currentPatient) {
+      alert('Please login first');
+      return;
+    }
+
+    await handleBookConsultation({
+      doctorLicenseNumber: doctor.licenseNumber,
+      patientContact: currentPatient.contact,
+      patientName: currentPatient.name,
+      reason: formData.symptoms,
+      consultationType: formData.consultationType,
+      preferredDate: formData.preferredDate,
+      preferredTime: formData.preferredTime,
+      additionalNotes: formData.additionalNotes
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label>Describe your symptoms or reason for consultation *</label>
+        <textarea
+          value={formData.symptoms}
+          onChange={(e) => setFormData({...formData, symptoms: e.target.value})}
+          placeholder="Please describe your symptoms or the reason you'd like to consult with the doctor..."
+          required
+        />
+      </div>
+
+      <div>
+        <label>Type of Consultation *</label>
+        <select
+          value={formData.consultationType}
+          onChange={(e) => setFormData({...formData, consultationType: e.target.value})}
+        >
+          <option value="general">General Consultation</option>
+          <option value="video-call">Video Consultation</option>
+          <option value="follow-up">Follow-up</option>
+          <option value="emergency">Emergency</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Preferred Date</label>
+        <input
+          type="date"
+          value={formData.preferredDate}
+          onChange={(e) => setFormData({...formData, preferredDate: e.target.value})}
+        />
+      </div>
+
+      <div>
+        <label>Preferred Time</label>
+        <select
+          value={formData.preferredTime}
+          onChange={(e) => setFormData({...formData, preferredTime: e.target.value})}
+        >
+          <option value="">Select a time slot</option>
+          <option value="09:00 AM">09:00 AM</option>
+          <option value="10:00 AM">10:00 AM</option>
+          <option value="11:00 AM">11:00 AM</option>
+          <option value="02:00 PM">02:00 PM</option>
+          <option value="03:00 PM">03:00 PM</option>
+          <option value="04:00 PM">04:00 PM</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Additional Notes (Optional)</label>
+        <textarea
+          value={formData.additionalNotes}
+          onChange={(e) => setFormData({...formData, additionalNotes: e.target.value})}
+          placeholder="Any additional information you'd like the doctor to know..."
+        />
+      </div>
+
+      <button type="submit">Book Consultation</button>
+      <button type="button" onClick={onClose}>Cancel</button>
+    </form>
+  );
+};
 ```
 
-## Key Features
+## Key Benefits of Updated System
 
-1. ✅ **Queue Management**: Doctors can see and manage their patient queue
-2. ✅ **Status Tracking**: Track consultation progress (waiting → in-progress → completed)
-3. ✅ **History**: Patients can view their consultation history
-4. ✅ **Statistics**: Dashboard with consultation stats
-5. ✅ **Flexible Booking**: Support for different consultation types
-6. ✅ **Notes System**: Doctors can add notes during/after consultations
-7. ✅ **Cancellation**: Both parties can cancel consultations
+1. ✅ **Simplified Lookup**: Use license numbers and contact numbers instead of IDs
+2. ✅ **Patient Preferences**: Capture preferred date/time from booking form
+3. ✅ **Detailed Notes**: Separate patient notes and doctor notes
+4. ✅ **Flexible Consultation Types**: Support for video calls, emergency, etc.
+5. ✅ **Better UX**: Form matches the screenshot provided
+6. ✅ **Automatic ID Resolution**: Backend handles ID lookup automatically
 
-This system provides a complete foundation for managing patient-doctor consultations with a proper queue system!
+The system now perfectly matches your frontend form and provides a seamless booking experience!

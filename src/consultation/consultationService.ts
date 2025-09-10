@@ -5,50 +5,51 @@ import { User } from '../user/usermodel.js';
 import mongoose from 'mongoose';
 
 export interface BookConsultationData {
-  doctorId: string;
-  patientId: string;
+  doctorLicenseNumber: string; // Doctor's license number for lookup
+  patientContact: string; // Patient's contact number for lookup
   patientName: string;
-  patientContact: string;
   reason: string;
   consultationType?: ConsultationType;
-  scheduledTime?: string;
+  preferredDate?: string;
+  preferredTime?: string;
+  additionalNotes?: string;
 }
 
 export interface UpdateConsultationStatus {
   doctorId: string;
   patientId: string;
   status: ConsultationStatus;
-  notes?: string;
+  doctorNotes?: string; // Changed from 'notes' to 'doctorNotes'
 }
 
 // Book a new consultation
 export const bookConsultation = async (consultationData: BookConsultationData): Promise<PatientInConsultation> => {
   try {
-    // Validate doctor exists
-    const doctor = await Doctor.findById(consultationData.doctorId);
+    // Find doctor by license number
+    const doctor = await Doctor.findOne({ licenseNumber: consultationData.doctorLicenseNumber });
     if (!doctor) {
-      throw new Error(`Doctor with ID ${consultationData.doctorId} not found`);
+      throw new Error(`Doctor with license number ${consultationData.doctorLicenseNumber} not found`);
     }
 
-    // Validate patient exists (optional - you might want to allow non-registered patients)
-    const patient = await User.findById(consultationData.patientId);
+    // Find patient by contact number
+    const patient = await User.findOne({ contact: consultationData.patientContact });
     if (!patient) {
-      throw new Error(`Patient with ID ${consultationData.patientId} not found`);
+      throw new Error(`Patient with contact number ${consultationData.patientContact} not found`);
     }
 
     // Find or create consultation document for the doctor
-    let consultation = await Consultation.findOne({ doctorId: consultationData.doctorId });
+    let consultation = await Consultation.findOne({ doctorId: doctor._id });
     
     if (!consultation) {
       consultation = new Consultation({
-        doctorId: consultationData.doctorId,
+        doctorId: doctor._id,
         patients: []
       });
     }
 
     // Check if patient already has a pending consultation with this doctor
     const existingConsultation = consultation.patients.find(
-      p => p.patientId.toString() === consultationData.patientId && 
+      p => p.patientId.toString() === (patient._id as mongoose.Types.ObjectId).toString() && 
            (p.status === ConsultationStatus.WAITING || p.status === ConsultationStatus.IN_PROGRESS)
     );
 
@@ -58,7 +59,7 @@ export const bookConsultation = async (consultationData: BookConsultationData): 
 
     // Create new patient consultation
     const newPatientConsultation: PatientInConsultation = {
-      patientId: new mongoose.Types.ObjectId(consultationData.patientId),
+      patientId: patient._id as mongoose.Types.ObjectId,
       patientName: consultationData.patientName,
       patientContact: consultationData.patientContact,
       reason: consultationData.reason,
@@ -67,9 +68,15 @@ export const bookConsultation = async (consultationData: BookConsultationData): 
       bookedAt: new Date()
     };
 
-    // Add scheduled time if provided
-    if (consultationData.scheduledTime) {
-      newPatientConsultation.scheduledTime = new Date(consultationData.scheduledTime);
+    // Add optional fields if provided
+    if (consultationData.preferredDate) {
+      newPatientConsultation.preferredDate = new Date(consultationData.preferredDate);
+    }
+    if (consultationData.preferredTime) {
+      newPatientConsultation.preferredTime = consultationData.preferredTime;
+    }
+    if (consultationData.additionalNotes) {
+      newPatientConsultation.additionalNotes = consultationData.additionalNotes;
     }
 
     // Add to consultation queue
@@ -154,8 +161,8 @@ export const updateConsultationStatus = async (updateData: UpdateConsultationSta
       patientConsultation.completedAt = new Date();
     }
 
-    if (updateData.notes) {
-      patientConsultation.notes = updateData.notes;
+    if (updateData.doctorNotes) {
+      patientConsultation.doctorNotes = updateData.doctorNotes;
     }
 
     await consultation.save();
