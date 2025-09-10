@@ -6,6 +6,11 @@ const dbUri = "mongodb+srv://hraj98097_db_user:pbL3F2UDbnxHzKyz@doctor-details.q
 
 mongoose.connect(dbUri);
 
+export async function getDoctorId(licenseNumber: string): Promise<string | null> {
+  const doctor = await Doctor.findOne({ licenseNumber }).lean();
+  return doctor ? doctor._id.toString() : null;
+}
+
 export async function addDoctor(doctor: DoctorDocument ): Promise<string> {
   const newDoctor = new Doctor(doctor);
   const savedDoctor:any = await newDoctor.save();

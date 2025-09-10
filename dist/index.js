@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { getDoctorId } from './Doctor/doctorService.js';
 import { createServer } from 'http';
 import { addDoctor, getAllDoctors } from './Doctor/doctorService.js';
 import { DoctorSchemaZod } from './Doctor/doctorModel.js';
@@ -34,6 +35,7 @@ app.post('/add-doctor', async (req, res) => {
     }
     const response = {
         name: result.data.name,
+        licenseNumber: result.data.licenseNumber,
         specialization: result.data.specialization,
         experience: result.data.experience,
         rating: result.data.rating,
@@ -247,6 +249,10 @@ app.post('/book-consultation', async (req, res) => {
             message: error instanceof Error ? error.message : 'Unknown error'
         });
     }
+});
+app.post('/doctorId', async (req, res) => {
+    const id = await (getDoctorId(req.body.licenseNumber));
+    res.status(200).json({ doctorId: id });
 });
 app.get('/doctor-consultations/:doctorId', async (req, res) => {
     try {

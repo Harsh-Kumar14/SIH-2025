@@ -8,6 +8,7 @@ enum Available {
 
 export const DoctorSchemaZod = z.object({
   name: z.string().min(1),
+  licenseNumber: z.string().min(1),
   specialization: z.string().min(1),
   experience: z.number(),
   rating: z.number(),
@@ -20,6 +21,7 @@ export const DoctorSchemaZod = z.object({
 
 export interface DoctorDocument extends Document {
   name: string;
+  licenseNumber: string;
   specialization: string;
   experience: number;
   rating: number;
@@ -32,6 +34,7 @@ export interface DoctorDocument extends Document {
 
 const DoctorSchema = new Schema<DoctorDocument>({
   name: { type: String, required: true },
+  licenseNumber: { type: String, required: true, unique: true },
   specialization: { type: String, required: true },
   experience: { type: Number, required: true },
   rating:{type:Number},
