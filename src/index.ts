@@ -1,3 +1,5 @@
+import bcrypt from 'bcrypt';
+
 import express from 'express';
 import cors from 'cors';
 import { getDoctorId } from './Doctor/doctorService.js';
@@ -40,9 +42,9 @@ const chatService = new ChatSocketService(server);
 app.use(express.json());
 app.use(cors({
     origin: '*', // Allow all origins for simplicity; adjust as needed for security
-}));
+  }));
 
-// Serve static files from public directory
+  // Serve static files from public directory
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
@@ -52,8 +54,28 @@ app.get('/', (req, res) => {
 // Chat routes
 app.use('/api/chat', chatRoutes);
 
-// User routes
-app.use('/api/users', userRoutes);
+// Doctor sign-in route (after app is initialized)
+app.post('/doctor-signin', async (req: Request, res: Response) => {
+  const { licenseNumber, password } = req.body;
+  if (!licenseNumber || !password) {
+    return res.status(400).json({ error: 'License number and password are required' });
+  }
+  try {
+    const doctor = await Doctor.findOne({ licenseNumber });
+    if (!doctor) {
+      return res.status(404).json({ error: 'Doctor not found' });
+    }
+    const isMatch = await bcrypt.compare(password, doctor.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    // You can return doctor info except password
+    const { password: _, ...doctorData } = doctor.toObject();
+    res.status(200).json({ message: 'Sign-in successful', doctor: doctorData });
+  } catch (error) {
+    res.status(500).json({ error: 'Sign-in failed', message: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
 
 app.post('/add-doctor', async (req: Request, res: Response) => {
   // Logic to add a doctor
@@ -71,7 +93,8 @@ app.post('/add-doctor', async (req: Request, res: Response) => {
     email: result.data.email,
     location: result.data.location,
     consultationFee: result.data.consultationFee,
-    availability: result.data.availability
+    availability: result.data.availability,
+    password: result.data.password
   }
   const doctorId = await addDoctor(response as DoctorDocument);
   res.status(201).send({ message: 'Doctor added successfully', doctorId });
