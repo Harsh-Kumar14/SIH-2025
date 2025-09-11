@@ -1,5 +1,5 @@
 import { User, Gender } from './usermodel.js';
-import type { UserDocument } from './usermodel.js';
+import type { UserDocument, PrescribedMedicine } from './usermodel.js';
 import { Doctor } from '../Doctor/doctorModel.js';
 import mongoose from 'mongoose';
 
@@ -199,5 +199,136 @@ export const getUserStats = async () => {
       throw new Error(`Failed to get user stats: ${error.message}`);
     }
     throw new Error('Failed to get user stats: Unknown error');
+  }
+};
+
+// Prescribe medicine to user
+export const prescribeMedicineToUser = async (
+  userId: string, 
+  medicineData: {
+    medicineName: string;
+    dose: string;
+    doctorId?: string;
+    instructions?: string;
+  }
+): Promise<UserDocument | null> => {
+  try {
+    const prescribedMedicine: PrescribedMedicine = {
+      medicineName: medicineData.medicineName,
+      dose: medicineData.dose,
+      prescribedAt: new Date(),
+      ...(medicineData.doctorId && { doctorId: medicineData.doctorId }),
+      ...(medicineData.instructions && { instructions: medicineData.instructions })
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        $push: { 
+          prescribedMedicines: prescribedMedicine 
+        } 
+      },
+      { new: true, runValidators: true }
+    );
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to prescribe medicine: ${error.message}`);
+    }
+    throw new Error('Failed to prescribe medicine: Unknown error');
+  }
+};
+
+// Prescribe multiple medicines to user
+export const prescribeMultipleMedicines = async (
+  userId: string,
+  medicines: Array<{
+    medicineName: string;
+    dose: string;
+    doctorId?: string;
+    instructions?: string;
+  }>
+): Promise<UserDocument | null> => {
+  try {
+    const prescribedMedicines: PrescribedMedicine[] = medicines.map(med => ({
+      medicineName: med.medicineName,
+      dose: med.dose,
+      prescribedAt: new Date(),
+      ...(med.doctorId && { doctorId: med.doctorId }),
+      ...(med.instructions && { instructions: med.instructions })
+    }));
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        $push: { 
+          prescribedMedicines: { $each: prescribedMedicines } 
+        } 
+      },
+      { new: true, runValidators: true }
+    );
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to prescribe medicines: ${error.message}`);
+    }
+    throw new Error('Failed to prescribe medicines: Unknown error');
+  }
+};
+
+// Get user's prescribed medicines
+export const getUserPrescribedMedicines = async (userId: string): Promise<PrescribedMedicine[]> => {
+  try {
+    const user = await User.findById(userId).select('prescribedMedicines');
+    return user?.prescribedMedicines || [];
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to get prescribed medicines: ${error.message}`);
+    }
+    throw new Error('Failed to get prescribed medicines: Unknown error');
+  }
+};
+
+// Remove a prescribed medicine from user
+export const removePrescribedMedicine = async (
+  userId: string, 
+  medicineIndex: number
+): Promise<UserDocument | null> => {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (medicineIndex < 0 || medicineIndex >= user.prescribedMedicines.length) {
+      throw new Error('Invalid medicine index');
+    }
+
+    user.prescribedMedicines.splice(medicineIndex, 1);
+    await user.save();
+
+    return user;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to remove prescribed medicine: ${error.message}`);
+    }
+    throw new Error('Failed to remove prescribed medicine: Unknown error');
+  }
+};
+
+// Get users by prescribed medicine name
+export const getUsersByMedicine = async (medicineName: string): Promise<UserDocument[]> => {
+  try {
+    const users = await User.find({
+      'prescribedMedicines.medicineName': { $regex: medicineName, $options: 'i' }
+    });
+    return users;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to get users by medicine: ${error.message}`);
+    }
+    throw new Error('Failed to get users by medicine: Unknown error');
   }
 };
