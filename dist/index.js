@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import express from 'express';
 import cors from 'cors';
 import { getDoctorId } from './Doctor/doctorService.js';
@@ -31,6 +32,29 @@ app.get('/', (req, res) => {
 });
 // Chat routes
 app.use('/api/chat', chatRoutes);
+// Doctor sign-in route (after app is initialized)
+app.post('/doctor-signin', async (req, res) => {
+    const { licenseNumber, password } = req.body;
+    if (!licenseNumber || !password) {
+        return res.status(400).json({ error: 'License number and password are required' });
+    }
+    try {
+        const doctor = await Doctor.findOne({ licenseNumber });
+        if (!doctor) {
+            return res.status(404).json({ error: 'Doctor not found' });
+        }
+        const isMatch = await bcrypt.compare(password, doctor.password);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Invalid password' });
+        }
+        // You can return doctor info except password
+        const { password: _, ...doctorData } = doctor.toObject();
+        res.status(200).json({ message: 'Sign-in successful', doctor: doctorData });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Sign-in failed', message: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
 app.post('/add-doctor', async (req, res) => {
     // Logic to add a doctor
     const result = DoctorSchemaZod.safeParse(req.body);
@@ -47,7 +71,8 @@ app.post('/add-doctor', async (req, res) => {
         email: result.data.email,
         location: result.data.location,
         consultationFee: result.data.consultationFee,
-        availability: result.data.availability
+        availability: result.data.availability,
+        password: result.data.password
     };
     const doctorId = await addDoctor(response);
     res.status(201).send({ message: 'Doctor added successfully', doctorId });

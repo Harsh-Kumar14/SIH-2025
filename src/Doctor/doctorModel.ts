@@ -16,7 +16,8 @@ export const DoctorSchemaZod = z.object({
   email: z.email(),
   location: z.string().min(1),
   consultationFee: z.string(),
-  availability: z.nativeEnum(Available)
+  availability: z.enum(Available),
+  password: z.string().min(6)
 });
 
 export interface DoctorDocument extends Document {
@@ -30,6 +31,7 @@ export interface DoctorDocument extends Document {
   location: string;
   consultationFee: string;
   availability: Available;
+  password: string;
 }
 
 const DoctorSchema = new Schema<DoctorDocument>({
@@ -37,12 +39,13 @@ const DoctorSchema = new Schema<DoctorDocument>({
   licenseNumber: { type: String, required: true, unique: true },
   specialization: { type: String, required: true },
   experience: { type: Number, required: true },
-  rating:{type:Number},
+  rating:{type:Number,default:0},
   contact: { type: String, required: true },
   email: { type: String, required: true },
-  location: { type: String, required: true },
-  consultationFee: {type:String,required:true},
-  availability:{type:String,required:true}
+  location: { type: String },
+  consultationFee: { type: String, required: true },
+  availability: { type: String, default: Available.AVAILABLE },
+  password: { type: String, required: true }
 });
 
 export const Doctor = mongoose.model<DoctorDocument>("Doctor", DoctorSchema);

@@ -13,6 +13,8 @@
   "type": "module",
   "dependencies": {
     "@types/express": "^5.0.3",
+    "@types/mongoose": "^5.11.97",
+    "bcrypt": "^6.0.0",
     "express": "^5.1.0",
     "mongodb": "^6.19.0",
     "socket.io": "^4.8.1",
@@ -22,5 +24,8 @@
   "optionalDependencies": {
     "bufferutil": "^4.0.9",
     "utf-8-validate": "^6.0.5"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0"
   }
 }

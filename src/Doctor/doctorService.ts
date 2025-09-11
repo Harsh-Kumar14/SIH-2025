@@ -1,6 +1,8 @@
+
 import mongoose from "mongoose";
 import type { DoctorDocument } from "./doctorModel.js";
 import { Doctor } from "./doctorModel.js";
+import bcrypt from "bcrypt";
 
 const dbUri = "mongodb+srv://hraj98097_db_user:pbL3F2UDbnxHzKyz@doctor-details.q8vf2ol.mongodb.net/doctor-details";
 
@@ -12,8 +14,10 @@ export async function getDoctorId(licenseNumber: string): Promise<string | null>
 }
 
 export async function addDoctor(doctor: DoctorDocument ): Promise<string> {
-  const newDoctor = new Doctor(doctor);
-  const savedDoctor:any = await newDoctor.save();
+  // Hash the password before saving
+  const hashedPassword = await bcrypt.hash(doctor.password, 10);
+  const newDoctor = new Doctor({ ...doctor, password: hashedPassword });
+  const savedDoctor: any = await newDoctor.save();
   return savedDoctor._id.toString();
 }
 
