@@ -12,7 +12,9 @@ import {
   prescribeMultipleMedicines,
   getUserPrescribedMedicines,
   removePrescribedMedicine,
-  getUsersByMedicine
+  getUsersByMedicine,
+  updateUserLocation,
+  getUsersNearLocation
 } from './userservice.js';
 
 const router = express.Router();
@@ -393,6 +395,100 @@ router.get('/medicine/:medicineName', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching users by medicine',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// PUT /api/users/:id/location - Update user location
+router.put('/:id/location', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { latitude, longitude, address, city, state, country } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+    
+    // Validate MongoDB ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format. Please use a valid MongoDB ObjectId.'
+      });
+    }
+    
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required'
+      });
+    }
+    
+    const locationData = {
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      ...(address && { address }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(country && { country }),
+      timestamp: new Date()
+    };
+    
+    const updatedUser = await updateUserLocation(id, locationData);
+    
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User location updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user location',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// GET /api/users/near-location - Get users near a location
+router.get('/near-location', async (req: Request, res: Response) => {
+  try {
+    const { latitude, longitude, radius } = req.query;
+    
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required'
+      });
+    }
+    
+    const lat = parseFloat(latitude as string);
+    const lng = parseFloat(longitude as string);
+    const radiusKm = radius ? parseFloat(radius as string) : 10; // Default 10km radius
+    
+    const users = await getUsersNearLocation(lat, lng, radiusKm);
+    
+    res.status(200).json({
+      success: true,
+      data: users,
+      count: users.length,
+      radius: radiusKm
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching users near location',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }

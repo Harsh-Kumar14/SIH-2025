@@ -11,6 +11,7 @@ import { chatRoutes } from './chatting/chat.routes.js';
 import { createUser, getAllUsers, getUserById,  deleteUser, getUsersByDoctorId, searchUsersByName, getUserStats, prescribeMedicineToUser, prescribeMultipleMedicines, getUserPrescribedMedicines, getUsersByMedicine } from './user/userservice.js';
 import { UserSchemaZod } from './user/usermodel.js';
 import { User } from './user/usermodel.js';
+import userRoutes from './user/userRoutes.js';
 import { Doctor } from './Doctor/doctorModel.js';
 import type { CreateUserData } from './user/userservice.js';
 import { PharmacyService } from './pharmacy/pharmacyService.js';
@@ -50,6 +51,9 @@ app.get('/', (req, res) => {
 
 // Chat routes
 app.use('/api/chat', chatRoutes);
+
+// User routes
+app.use('/api/users', userRoutes);
 
 app.post('/add-doctor', async (req: Request, res: Response) => {
   // Logic to add a doctor
@@ -95,7 +99,8 @@ app.post('/add-user', async (req: Request, res: Response) => {
       contact: result.data.contact,
       age: result.data.age,
       gender: result.data.gender,
-      doctorId: result.data.doctorId ? result.data.doctorId : ""
+      doctorId: result.data.doctorId ? result.data.doctorId : "",
+      ...(result.data.location && { location: result.data.location })
     };
 
     const user = await createUser(userData);

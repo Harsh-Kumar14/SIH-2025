@@ -1,5 +1,5 @@
 import { User, Gender } from './usermodel.js';
-import type { UserDocument, PrescribedMedicine } from './usermodel.js';
+import type { UserDocument, PrescribedMedicine, UserLocation } from './usermodel.js';
 import { Doctor } from '../Doctor/doctorModel.js';
 import mongoose from 'mongoose';
 
@@ -9,6 +9,15 @@ export interface CreateUserData {
   age: number;
   gender: Gender;
   doctorId: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address?: string | undefined;
+    city?: string | undefined;
+    state?: string | undefined;
+    country?: string | undefined;
+    timestamp?: Date | undefined;
+  };
 }
 
 export interface UserWithDoctor extends UserDocument {
@@ -41,6 +50,7 @@ export const createUser = async (userData: CreateUserData): Promise<UserDocument
       contact: userData.contact,
       age: userData.age,
       gender: userData.gender,
+      ...(userData.location && { location: userData.location })
     //   doctorId: userData.doctorId
     });
 
@@ -331,4 +341,80 @@ export const getUsersByMedicine = async (medicineName: string): Promise<UserDocu
     }
     throw new Error('Failed to get users by medicine: Unknown error');
   }
+};
+
+// Update user location
+export const updateUserLocation = async (
+  userId: string,
+  locationData: UserLocation
+): Promise<UserDocument | null> => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        location: {
+          ...locationData,
+          timestamp: new Date()
+        }
+      },
+      { new: true, runValidators: true }
+    );
+
+    return updatedUser;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to update user location: ${error.message}`);
+    }
+    throw new Error('Failed to update user location: Unknown error');
+  }
+};
+
+// Get users within a certain radius (in kilometers) from given coordinates
+export const getUsersNearLocation = async (
+  latitude: number,
+  longitude: number,
+  radiusKm: number = 10
+): Promise<UserDocument[]> => {
+  try {
+    const users = await User.find({
+      'location.latitude': { $exists: true },
+      'location.longitude': { $exists: true }
+    });
+
+    // Filter users by distance using Haversine formula
+    const usersWithinRadius = users.filter(user => {
+      if (!user.location?.latitude || !user.location?.longitude) {
+        return false;
+      }
+
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        user.location.latitude,
+        user.location.longitude
+      );
+
+      return distance <= radiusKm;
+    });
+
+    return usersWithinRadius;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to get users near location: ${error.message}`);
+    }
+    throw new Error('Failed to get users near location: Unknown error');
+  }
+};
+
+// Helper function to calculate distance between two points using Haversine formula
+const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 };

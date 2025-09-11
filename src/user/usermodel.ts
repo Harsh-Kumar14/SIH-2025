@@ -7,6 +7,17 @@ enum Gender {
   OTHER = "other"
 }
 
+// Location interface
+export interface UserLocation {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  timestamp: Date;
+}
+
 // Medicine prescription interface
 export interface PrescribedMedicine {
   medicineName: string;
@@ -22,6 +33,15 @@ export const UserSchemaZod = z.object({
   age: z.number().min(1, "Age must be greater than 0").max(150, "Age must be less than 150"),
   gender: z.nativeEnum(Gender),
   doctorId: z.string().optional(),
+  location: z.object({
+    latitude: z.number().min(-90).max(90, "Invalid latitude"),
+    longitude: z.number().min(-180).max(180, "Invalid longitude"),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    country: z.string().optional(),
+    timestamp: z.date().optional()
+  }).optional(),
   prescribedMedicines: z.array(z.object({
     medicineName: z.string().min(1, "Medicine name is required"),
     dose: z.string().min(1, "Dose is required"),
@@ -36,6 +56,7 @@ export interface UserDocument extends Document {
   contact: string;
   age: number;
   gender: Gender;
+  location?: UserLocation;
   prescribedMedicines: PrescribedMedicine[];
   createdAt: Date;
   updatedAt: Date;
@@ -63,6 +84,38 @@ const UserSchema = new Schema<UserDocument>({
     type: String, 
     enum: Object.values(Gender),
     required: true
+  },
+  location: {
+    latitude: {
+      type: Number,
+      min: -90,
+      max: 90
+    },
+    longitude: {
+      type: Number,
+      min: -180,
+      max: 180
+    },
+    address: {
+      type: String,
+      trim: true
+    },
+    city: {
+      type: String,
+      trim: true
+    },
+    state: {
+      type: String,
+      trim: true
+    },
+    country: {
+      type: String,
+      trim: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
   },
   prescribedMedicines: [{
     medicineName: {
