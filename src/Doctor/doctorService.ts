@@ -3,8 +3,15 @@ import mongoose from "mongoose";
 import type { DoctorDocument } from "./doctorModel.js";
 import { Doctor } from "./doctorModel.js";
 import bcrypt from "bcrypt";
+import dotenv from 'dotenv';
 
-const dbUri = "mongodb+srv://hraj98097_db_user:pbL3F2UDbnxHzKyz@doctor-details.q8vf2ol.mongodb.net/doctor-details";
+dotenv.config();
+
+const dbUri = process.env.DATABASE_URI || process.env.DATABASE_URL;
+
+if (!dbUri) {
+  throw new Error('DATABASE_URI or DATABASE_URL environment variable is required');
+}
 
 mongoose.connect(dbUri);
 

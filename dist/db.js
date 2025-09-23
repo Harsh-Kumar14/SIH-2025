@@ -1,6 +1,11 @@
 const { MongoClient } = require("mongodb");
-// Replace the uri string with your connection string
-const uri = "mongodb+srv://hraj98097_db_user:pbL3F2UDbnxHzKyz@doctor-details.q8vf2ol.mongodb.net/";
+import dotenv from 'dotenv';
+dotenv.config();
+// Get the database URI from environment variables
+const uri = process.env.DATABASE_URI || process.env.DATABASE_URL;
+if (!uri) {
+    throw new Error('DATABASE_URI or DATABASE_URL environment variable is required');
+}
 const client = new MongoClient(uri);
 export { client };
 //# sourceMappingURL=db.js.map
