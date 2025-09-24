@@ -31,17 +31,17 @@ export const UserSchemaZod = z.object({
   name: z.string().min(1, "Name is required"),
   contact: z.string().min(10, "Contact number must be at least 10 digits"),
   age: z.number().min(1, "Age must be greater than 0").max(150, "Age must be less than 150"),
-  gender: z.nativeEnum(Gender),
+  gender: z.enum(Gender),
   doctorId: z.string().optional(),
   location: z.object({
-    latitude: z.number().min(-90).max(90, "Invalid latitude"),
-    longitude: z.number().min(-180).max(180, "Invalid longitude"),
+    latitude: z.number().min(-90).max(90, "Invalid latitude").default(0),
+    longitude: z.number().min(-180).max(180, "Invalid longitude").default(0),
     address: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),
     country: z.string().optional(),
     timestamp: z.date().optional()
-  }).optional(),
+  }).optional().default({ latitude: 0, longitude: 0, timestamp: new Date() }),
   prescribedMedicines: z.array(z.object({
     medicineName: z.string().min(1, "Medicine name is required"),
     dose: z.string().min(1, "Dose is required"),

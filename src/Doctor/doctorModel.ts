@@ -14,7 +14,7 @@ export const DoctorSchemaZod = z.object({
   rating: z.number(),
   contact: z.string().min(1),
   email: z.email(),
-  location: z.string().min(1),
+  location: z.string().default("Jais"),
   consultationFee: z.string(),
   availability: z.enum(Available),
   password: z.string().min(6)
